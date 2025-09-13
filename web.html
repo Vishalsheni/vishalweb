@@ -1,0 +1,329 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Slot Booking — Login</title>
+  <style>
+    :root{
+      --bg:#0f1724;
+      --card:#0b1220;
+      --accent:#3b82f6;
+      --muted:#94a3b8;
+      --glass: rgba(255,255,255,0.03);
+      --success: #16a34a;
+      --danger: #ef4444;
+      --radius: 12px;
+      --maxwidth: 980px;
+      --gap: 16px;
+      font-family: Inter, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial;
+    }
+    *{box-sizing:border-box}
+    html,body{height:100%;margin:0;background:linear-gradient(180deg,#071024 0%, #0c1624 100%);color:#e6eef8}
+    .container{max-width:var(--maxwidth);margin:40px auto;padding:24px;display:grid;grid-template-columns:1fr 420px;gap:32px;align-items:start}
+    header{grid-column:1/-1;display:flex;justify-content:space-between;align-items:center;margin-bottom:6px}
+    h1{font-size:20px;margin:0}
+    .card{background:var(--card);border-radius:var(--radius);padding:20px;box-shadow: 0 6px 18px rgba(2,6,23,0.6);border:1px solid rgba(255,255,255,0.02)}
+    .login-panel{display:flex;flex-direction:column;gap:12px}
+    label{font-size:13px;color:var(--muted)}
+    input[type="email"],input[type="password"]{width:100%;padding:12px;border-radius:8px;border:1px solid rgba(255,255,255,0.04);background:var(--glass);color:inherit;font-size:15px}
+    button{padding:10px 14px;border-radius:10px;border:none;background:var(--accent);color:white;font-weight:600;cursor:pointer}
+    button.secondary{background:transparent;border:1px solid rgba(255,255,255,0.06);color:var(--muted)}
+    small.hint{color:var(--muted);display:block;margin-top:6px}
+    .illustration{padding:20px;display:flex;flex-direction:column;gap:10px;align-items:center;justify-content:center}
+    .brand-large{font-weight:700;letter-spacing:-0.5px;font-size:28px}
+    .muted{color:var(--muted);font-size:14px}
+    /* Slots area */
+    .slots-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
+    .day{background:linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01));padding:12px;border-radius:10px}
+    .day h3{margin:0;font-size:15px}
+    .times{display:flex;flex-wrap:wrap;gap:8px;margin-top:8px}
+    .slot{padding:8px 10px;border-radius:8px;cursor:pointer;border:1px solid rgba(255,255,255,0.04);background:rgba(255,255,255,0.01);font-size:14px}
+    .slot:hover{transform:translateY(-2px);transition:all .12s}
+    .slot.selected{background:linear-gradient(90deg,var(--accent),#60a5fa);color:#04203a;border-color:rgba(255,255,255,0.02);box-shadow:0 6px 18px rgba(59,130,246,0.18)}
+    .slot.booked{background:linear-gradient(90deg,var(--muted),#7b8794);color:#071024;cursor:not-allowed;opacity:0.9}
+    .topbar{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:14px}
+    .small{font-size:13px;color:var(--muted)}
+    .actions{display:flex;gap:8px}
+    footer{grid-column:1/-1;margin-top:18px;color:var(--muted);font-size:13px;text-align:center}
+    @media (max-width:980px){.container{grid-template-columns:1fr;padding:16px}.slots-grid{grid-template-columns:repeat(2,1fr)}}
+    @media (max-width:560px){.slots-grid{grid-template-columns:1fr}}
+  </style>
+</head>
+<body>
+  <div class="container" id="app">
+    <header>
+      <div>
+        <h1>SlotBooker</h1>
+        <div class="small">Simple demo — Login & choose slots</div>
+      </div>
+      <div id="userArea" style="display:none"></div>
+    </header>
+
+    <!-- Left: Main app area (login or booking) -->
+    <main id="mainCard" class="card">
+      <!-- LOGIN VIEW -->
+      <section id="loginView" aria-live="polite">
+        <div style="display:flex;gap:16px;align-items:center">
+          <div style="flex:1">
+            <h2 style="margin:0 0 6px 0">Welcome back</h2>
+            <p class="muted" style="margin:0 0 16px 0">Sign in to manage and book slots.</p>
+          </div>
+        </div>
+
+        <form id="loginForm" class="login-panel" onsubmit="event.preventDefault(); login();">
+          <div>
+            <label for="email">Email</label>
+            <input id="email" type="email" required placeholder="you@example.com" autocomplete="username">
+          </div>
+          <div>
+            <label for="password">Password</label>
+            <input id="password" type="password" required placeholder="Your password" autocomplete="current-password">
+            <small class="hint">Demo credentials: <strong>user@example.com</strong> / <strong>password123</strong></small>
+          </div>
+
+          <div style="display:flex;gap:10px;align-items:center;">
+            <button type="submit">Sign in</button>
+            <button type="button" class="secondary" onclick="fillDemo()">Use demo</button>
+          </div>
+
+          <div style="margin-top:10px;color:var(--muted);font-size:13px">
+            This is a front-end demo. For production, authenticate on a server and store bookings centrally.
+          </div>
+        </form>
+      </section>
+
+      <!-- SLOTS VIEW (hidden until login) -->
+      <section id="slotsView" style="display:none">
+        <div class="topbar">
+          <div>
+            <div style="font-weight:700" id="welcomeUser">Hi, User</div>
+            <div class="small" id="bookingNote">Choose available slots below</div>
+          </div>
+          <div class="actions">
+            <button class="secondary" onclick="logout()">Logout</button>
+            <button id="confirmBtn" onclick="confirmBooking()">Confirm Booking</button>
+          </div>
+        </div>
+
+        <div class="card" style="margin-bottom:12px;padding:12px;display:flex;justify-content:space-between;align-items:center">
+          <div>
+            <div style="font-weight:600">Your Selected Slots</div>
+            <div id="selectedList" class="small muted">No slots selected</div>
+          </div>
+          <div style="text-align:right">
+            <div class="small muted">Booked slots are reserved across sessions</div>
+          </div>
+        </div>
+
+        <div>
+          <div style="margin-bottom:10px;font-weight:600">Available slots for the next 6 days</div>
+          <div id="days" class="slots-grid" aria-live="polite"></div>
+        </div>
+
+      </section>
+    </main>
+
+    <!-- Right: Info / Branding -->
+    <aside class="card illustration">
+      <div class="brand-large">SlotBooker</div>
+      <div class="muted">A lightweight demo showing login and slot selection. Save bookings locally (localStorage).</div>
+      <hr style="width:100%;border:none;border-top:1px solid rgba(255,255,255,0.03);margin:12px 0">
+      <div style="width:100%">
+        <strong>How it works</strong>
+        <ol style="color:var(--muted);padding-left:18px;margin:8px 0 0 0">
+          <li>Login with demo credentials or your own (mock).</li>
+          <li>Pick one or more available time slots.</li>
+          <li>Confirm to save bookings (stored locally).</li>
+        </ol>
+      </div>
+    </aside>
+
+    <footer class="small">This demo stores bookings in browser only. Replace client storage with server API for real use.</footer>
+  </div>
+
+<script>
+/*
+  Simple client-side demo.
+  - Demo account: user@example.com / password123
+  - Bookings persist in localStorage under "bookedSlots"
+  - Logged-in user stored in localStorage as "loggedInUser"
+*/
+
+// --- Utilities
+const qs = sel => document.querySelector(sel);
+const qsa = sel => document.querySelectorAll(sel);
+
+function uid(){ return 'u_' + Math.random().toString(36).slice(2,9) }
+
+// --- Demo data: create 6 days with time slots
+function generateDays(numDays = 6) {
+  const days = [];
+  const now = new Date();
+  for(let i=0;i<numDays;i++){
+    const d = new Date(now.getFullYear(), now.getMonth(), now.getDate()+i);
+    // example times
+    const times = ["09:00","10:00","11:00","14:00","15:00","16:00"];
+    days.push({
+      id: d.toISOString().slice(0,10),
+      label: d.toDateString().slice(0,10),
+      times: times.map(t => ({id: `${d.toISOString().slice(0,10)}_${t}`, time:t}))
+    });
+  }
+  return days;
+}
+
+// --- Local Storage helpers
+function getBookedSlots(){
+  try{
+    return JSON.parse(localStorage.getItem('bookedSlots') || '[]')
+  }catch(e){ return [] }
+}
+function setBookedSlots(arr){ localStorage.setItem('bookedSlots', JSON.stringify(arr)) }
+
+function getLoggedInUser(){ return JSON.parse(localStorage.getItem('loggedInUser') || 'null') }
+function setLoggedInUser(u){ localStorage.setItem('loggedInUser', JSON.stringify(u)) }
+function clearLoggedInUser(){ localStorage.removeItem('loggedInUser') }
+
+// --- Auth (mock)
+function login(){
+  const email = qs('#email').value.trim();
+  const password = qs('#password').value.trim();
+  // demo credentials
+  if(email === 'user@example.com' && password === 'password123'){
+    const user = { id: 'demo_user', email, name: 'Demo User' };
+    setLoggedInUser(user);
+    showSlotsView();
+  } else {
+    alert('Invalid demo credentials. Use user@example.com / password123');
+  }
+}
+
+function logout(){
+  clearLoggedInUser();
+  qs('#slotsView').style.display = 'none';
+  qs('#loginView').style.display = 'block';
+  qs('#userArea').style.display = 'none';
+  qs('#mainCard').scrollIntoView({behavior:'smooth'});
+}
+
+// populate demo
+function fillDemo(){
+  qs('#email').value = 'user@example.com';
+  qs('#password').value = 'password123';
+}
+
+function showSlotsView(){
+  const user = getLoggedInUser();
+  if(!user) return;
+  qs('#loginView').style.display = 'none';
+  qs('#slotsView').style.display = 'block';
+  qs('#userArea').style.display = 'block';
+  qs('#userArea').innerHTML = `<div style="text-align:right"><small class="small">Signed in as</small><div style="font-weight:700">${user.email}</div></div>`;
+  qs('#welcomeUser').textContent = `Hi, ${user.name}`;
+  renderDays();
+}
+
+// --- Slot selection
+const days = generateDays(6);
+let selected = []; // array of slot ids user currently selected (not confirmed)
+function renderDays(){
+  const container = qs('#days');
+  container.innerHTML = '';
+  const booked = getBookedSlots(); // array of objects {slotId, userId, email}
+  days.forEach(day=>{
+    const dEl = document.createElement('div');
+    dEl.className = 'day';
+    dEl.innerHTML = `<h3>${day.label}</h3>`;
+    const timesEl = document.createElement('div');
+    timesEl.className = 'times';
+    day.times.forEach(slot=>{
+      const s = document.createElement('button');
+      s.className = 'slot';
+      s.textContent = slot.time;
+      s.setAttribute('data-slot', slot.id);
+
+      // check if booked
+      const isBooked = booked.find(b => b.slotId === slot.id);
+      if(isBooked){
+        s.classList.add('booked');
+        s.title = `Booked by ${isBooked.email}`;
+        s.disabled = true;
+      } else {
+        // mark selected if in selected array
+        if(selected.includes(slot.id)) s.classList.add('selected');
+        s.addEventListener('click', ()=> toggleSelect(slot.id, s));
+      }
+      timesEl.appendChild(s);
+    });
+    dEl.appendChild(timesEl);
+    container.appendChild(dEl);
+  });
+  updateSelectedList();
+}
+
+function toggleSelect(slotId, btn){
+  if(selected.includes(slotId)){
+    selected = selected.filter(s => s !== slotId);
+    btn.classList.remove('selected');
+  } else {
+    selected.push(slotId);
+    btn.classList.add('selected');
+  }
+  updateSelectedList();
+}
+
+function updateSelectedList(){
+  const el = qs('#selectedList');
+  if(selected.length === 0){
+    el.textContent = 'No slots selected';
+  } else {
+    el.textContent = selected.join(', ');
+  }
+}
+
+// Confirm booking (save to localStorage as booked)
+function confirmBooking(){
+  const user = getLoggedInUser();
+  if(!user){
+    alert('Please login first.');
+    return;
+  }
+  if(selected.length === 0){
+    alert('Pick at least one slot to book.');
+    return;
+  }
+  // fetch existing booked; prevent race: check collisions
+  const booked = getBookedSlots();
+  const collisions = selected.filter(s => booked.find(b=>b.slotId===s));
+  if(collisions.length){
+    alert('Some slots were just booked by someone else: ' + collisions.join(', '));
+    // remove collisions from selected
+    selected = selected.filter(s => !collisions.includes(s));
+    renderDays();
+    return;
+  }
+  // add bookings
+  const newBookings = selected.map(s => ({ slotId: s, userId: user.id, email: user.email, createdAt: new Date().toISOString() }));
+  setBookedSlots(booked.concat(newBookings));
+  alert('Booking confirmed for: ' + selected.join(', '));
+  // clear selected and update UI
+  selected = [];
+  renderDays();
+}
+
+// --- On load: if already logged in, show slots
+(function init(){
+  const existing = getLoggedInUser();
+  if(existing){
+    showSlotsView();
+  } else {
+    // show login by default
+    qs('#loginView').style.display = 'block';
+    qs('#slotsView').style.display = 'none';
+    qs('#userArea').style.display = 'none';
+  }
+})();
+</script>
+</body>
+</html>
