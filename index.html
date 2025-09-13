@@ -1,0 +1,247 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Simple Site — Register & Login</title>
+  <style>
+    :root{--bg:#0f1724;--card:#0b1220;--accent:#4dd0e1;--text:#e6eef6}
+    *{box-sizing:border-box}
+    body{margin:0;min-height:100vh;display:grid;place-items:center;background:linear-gradient(180deg,#071226,#0f1724);color:var(--text);font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial}
+    .container{width:100%;max-width:920px;padding:18px}
+    .grid{display:grid;grid-template-columns:1fr 1fr;gap:18px}
+    .card{background:linear-gradient(180deg,#071320,#071b2a);padding:18px;border-radius:12px;border:1px solid rgba(255,255,255,.04);box-shadow:0 6px 18px rgba(2,6,23,.6)}
+    h1{margin:0 0 12px;font-size:20px}
+    label{display:block;font-size:13px;margin:10px 0 6px;color:rgba(255,255,255,.85)}
+    input,select{width:100%;padding:10px;border-radius:8px;border:1px solid rgba(255,255,255,.06);background:#071826;color:var(--text);outline:none;font-size:14px}
+    .btn{display:inline-block;padding:10px 14px;border-radius:10px;border:none;background:var(--accent);color:#012;cursor:pointer;font-weight:700;margin-top:10px}
+    .small{font-size:13px;color:rgba(255,255,255,.7)}
+    .center{text-align:center}
+    #dashboard{display:none}
+    .notice{background:#081826;padding:8px;border-radius:8px;margin-top:8px;color: #bfeff6;font-size:13px}
+    .error{color:#ffb4b4;font-size:13px;margin-top:6px}
+    @media(max-width:760px){.grid{grid-template-columns:1fr}}
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Website with Registration & Login</h1>
+    <div class="grid">
+      <!-- Registration card -->
+      <div class="card" id="registerCard">
+        <strong>Register (Create account)</strong>
+        <p class="small">Fill name, mobile, choose a slot and set a password. Slots are limited and reserved per mobile number.</p>
+
+        <label for="regName">Full name</label>
+        <input id="regName" type="text" placeholder="Your name" />
+
+        <label for="regMobile">Mobile number</label>
+        <input id="regMobile" type="tel" placeholder="10-digit mobile (e.g. 9876543210)" />
+
+        <label for="regSlot">Slot number</label>
+        <select id="regSlot"></select>
+
+        <label for="regPass">Password (min 4 chars)</label>
+        <input id="regPass" type="password" placeholder="Set a password" />
+
+        <div id="regError" class="error" role="alert"></div>
+        <button class="btn" id="btnRegister">Register</button>
+
+        <div class="notice" style="margin-top:10px">
+          Tip: This demo stores accounts locally in your browser using <code>localStorage</code>. It is only for learning/testing — not secure for real production use.
+        </div>
+      </div>
+
+      <!-- Login card -->
+      <div class="card" id="loginCard">
+        <strong>Login (Enter site)</strong>
+        <p class="small">Login with your mobile and password to access the inside area.</p>
+
+        <label for="loginMobile">Mobile number</label>
+        <input id="loginMobile" type="tel" placeholder="Registered mobile" />
+
+        <label for="loginPass">Password</label>
+        <input id="loginPass" type="password" placeholder="Your password" />
+
+        <div id="loginError" class="error" role="alert"></div>
+        <button class="btn" id="btnLogin">Login</button>
+
+        <div class="notice" style="margin-top:10px">
+          If you already registered earlier in this browser, use those credentials. Clearing browser storage will remove accounts.
+        </div>
+      </div>
+    </div>
+
+    <!-- Dashboard (protected) -->
+    <div id="dashboard" class="card" style="margin-top:18px">
+      <div style="display:flex;justify-content:space-between;align-items:center">
+        <div>
+          <strong id="dashTitle">Welcome</strong>
+          <div class="small" id="dashSub">You are inside the site.</div>
+        </div>
+        <div style="text-align:right">
+          <button class="btn" id="btnLogout" style="background:#ff9f9f">Logout</button>
+        </div>
+      </div>
+
+      <div style="margin-top:14px">
+        <p class="small">Your registered info:</p>
+        <ul id="userInfo" class="small"></ul>
+      </div>
+
+      <div style="margin-top:10px">
+        <strong>All reserved slots</strong>
+        <div id="slotsList" class="small" style="margin-top:8px"></div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    /****************************************************************
+     * Simple client-side registration & login using localStorage
+     * - Users stored as object { mobile: {name, mobile, slot, pass} }
+     * - NOT SECURE for production. Only for demo/learning.
+     ****************************************************************/
+
+    // Elements
+    const regName = document.getElementById('regName');
+    const regMobile = document.getElementById('regMobile');
+    const regSlot = document.getElementById('regSlot');
+    const regPass = document.getElementById('regPass');
+    const btnRegister = document.getElementById('btnRegister');
+    const regError = document.getElementById('regError');
+
+    const loginMobile = document.getElementById('loginMobile');
+    const loginPass = document.getElementById('loginPass');
+    const btnLogin = document.getElementById('btnLogin');
+    const loginError = document.getElementById('loginError');
+
+    const dashboard = document.getElementById('dashboard');
+    const dashTitle = document.getElementById('dashTitle');
+    const dashSub = document.getElementById('dashSub');
+    const userInfo = document.getElementById('userInfo');
+    const slotsList = document.getElementById('slotsList');
+    const btnLogout = document.getElementById('btnLogout');
+
+    // Simple configuration
+    const TOTAL_SLOTS = 12; // change as needed
+
+    // Utility: load & save users
+    function loadUsers() {
+      try {
+        const raw = localStorage.getItem('demo_users_v1');
+        return raw ? JSON.parse(raw) : {};
+      } catch (e) { return {}; }
+    }
+    function saveUsers(users) {
+      localStorage.setItem('demo_users_v1', JSON.stringify(users));
+    }
+
+    // Fill slot options and show availability
+    function populateSlots() {
+      regSlot.innerHTML = '';
+      const users = loadUsers();
+      for (let i=1;i<=TOTAL_SLOTS;i++){
+        const takenBy = Object.values(users).find(u => Number(u.slot) === i);
+        const opt = document.createElement('option');
+        opt.value = i;
+        opt.textContent = `Slot ${i}` + (takenBy ? ` — taken` : '');
+        if (takenBy) opt.disabled = true;
+        regSlot.appendChild(opt);
+      }
+      renderSlotsList();
+    }
+
+    // Show reserved slots summary
+    function renderSlotsList(){
+      const users = loadUsers();
+      const items = Object.values(users).sort((a,b)=>a.slot-b.slot).map(u=>`Slot ${u.slot}: ${escapeHtml(u.name)} (${escapeHtml(u.mobile)})`);
+      slotsList.innerHTML = items.length ? items.join('<br/>') : '<span style="opacity:.7">No slots reserved</span>';
+    }
+
+    // Basic validation
+    function validMobile(m){
+      // Indian-style 10 digits OR generic 10-digit check
+      return /^\d{10}$/.test(m.trim());
+    }
+
+    function escapeHtml(s){
+      return String(s).replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[c]);
+    }
+
+    // Register handler
+    btnRegister.addEventListener('click', () => {
+      regError.textContent = '';
+      const name = regName.value.trim();
+      const mobile = regMobile.value.trim();
+      const slot = Number(regSlot.value);
+      const pass = regPass.value;
+
+      if (!name) return regError.textContent = 'Please enter your name.';
+      if (!validMobile(mobile)) return regError.textContent = 'Enter a valid 10-digit mobile number.';
+      if (!slot || slot < 1 || slot > TOTAL_SLOTS) return regError.textContent = 'Select a valid slot.';
+      if (!pass || pass.length < 4) return regError.textContent = 'Password must be at least 4 characters.';
+
+      const users = loadUsers();
+      if (users[mobile]) return regError.textContent = 'An account with this mobile already exists. Please login instead.';
+
+      // Check slot availability again (race safe)
+      const taken = Object.values(users).find(u => Number(u.slot) === slot);
+      if (taken) return regError.textContent = 'Selected slot was just taken. Choose another slot.';
+
+      // Save user
+      users[mobile] = { name, mobile, slot, pass };
+      saveUsers(users);
+
+      // Clear inputs and refresh available slots
+      regName.value = ''; regMobile.value = ''; regPass.value = '';
+      populateSlots();
+
+      alert('Registered successfully! Now login to enter the site.');
+    });
+
+    // Login handler
+    btnLogin.addEventListener('click', () => {
+      loginError.textContent = '';
+      const mobile = loginMobile.value.trim();
+      const pass = loginPass.value;
+      if (!validMobile(mobile)) return loginError.textContent = 'Enter a valid 10-digit mobile.';
+      if (!pass) return loginError.textContent = 'Enter your password.';
+
+      const users = loadUsers();
+      const user = users[mobile];
+      if (!user) return loginError.textContent = 'No account found for this mobile. Please register first.';
+      if (user.pass !== pass) return loginError.textContent = 'Incorrect password.';
+
+      // Login success — show dashboard
+      showDashboard(user);
+      loginMobile.value = ''; loginPass.value = '';
+    });
+
+    // Show dashboard (protected area)
+    function showDashboard(user){
+      dashTitle.textContent = `Welcome, ${user.name.split(' ')[0] || user.name}!`;
+      dashSub.textContent = `You are logged in. Slot: ${user.slot}`;
+      userInfo.innerHTML = `
+        <li><strong>Name:</strong> ${escapeHtml(user.name)}</li>
+        <li><strong>Mobile:</strong> ${escapeHtml(user.mobile)}</li>
+        <li><strong>Slot:</strong> ${escapeHtml(user.slot)}</li>
+      `;
+      dashboard.style.display = 'block';
+      // Optionally hide cards or keep them visible
+      document.getElementById('registerCard').style.opacity = '0.6';
+      document.getElementById('loginCard').style.opacity = '0.6';
+    }
+
+    // Logout
+    btnLogout.addEventListener('click', () => {
+      dashboard.style.display = 'none';
+      document.getElementById('registerCard').style.opacity = '1';
+      document.getElementById('loginCard').style.opacity = '1';
+    });
+
+    // Init
+    populateSlots();
+  </script>
+</body>
+</html>
